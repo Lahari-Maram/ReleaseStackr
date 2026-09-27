@@ -1,0 +1,36 @@
+{
+  "name": "release-checklist-tool",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack single-page application for managing software releases with GraphQL and PostgreSQL",
+  "workspaces": [
+    "backend",
+    "frontend",
+    "load-tests"
+  ],
+  "scripts": {
+    "dev:backend": "npm --workspace=backend run dev",
+    "dev:frontend": "npm --workspace=frontend run dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:backend": "npm --workspace=backend run build",
+    "build:frontend": "npm --workspace=frontend run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "test:backend": "npm --workspace=backend test",
+    "test": "npm run test:backend",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "keywords": [
+    "release-checklist",
+    "graphql",
+    "react",
+    "apollo",
+    "postgresql",
+    "prisma"
+  ],
+  "author": "",
+  "license": "MIT"
+}

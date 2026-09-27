@@ -1,0 +1,12 @@
+{
+  "name": "load-tests",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:local": "node run-load-test.js --url=http://localhost:4000/graphql --vus=10 --duration=15",
+    "test:ramping": "node run-load-test.js --url=http://localhost:4000/graphql --ramp",
+    "k6:local": "k6 run k6-stress-test.js"
+  },
+  "dependencies": {}
+}
