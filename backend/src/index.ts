@@ -11,6 +11,7 @@ import { prisma } from './db/prisma';
 dotenv.config();
 
 const PORT = parseInt(process.env.PORT || '4000', 10);
+const HOST = process.env.HOST || '0.0.0.0';
 
 export async function createServer() {
   const app = express();
@@ -25,6 +26,16 @@ export async function createServer() {
 
   app.use(cors());
   app.use(express.json());
+
+  // Root endpoint for status and cloud load-balancer verification
+  app.get('/', (_req, res) => {
+    res.status(200).json({
+      status: 'ok',
+      service: 'ReleaseStackr API',
+      health: '/health',
+      graphql: '/graphql',
+    });
+  });
 
   // Health check endpoint for monitoring and cloud platforms
   app.get('/health', async (_req, res) => {
@@ -60,9 +71,9 @@ export async function createServer() {
 
 if (process.env.NODE_ENV !== 'test') {
   createServer().then(({ httpServer }) => {
-    httpServer.listen(PORT, () => {
-      console.log(`🚀 Release Checklist GraphQL API running at http://localhost:${PORT}/graphql`);
-      console.log(`🩺 Health check endpoint running at http://localhost:${PORT}/health`);
+    httpServer.listen(PORT, HOST, () => {
+      console.log(`🚀 ReleaseStackr GraphQL API running at http://${HOST}:${PORT}/graphql`);
+      console.log(`🩺 Health check endpoint running at http://${HOST}:${PORT}/health`);
     });
   }).catch((err) => {
     console.error('Failed to start server:', err);

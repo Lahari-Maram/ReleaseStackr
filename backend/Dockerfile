@@ -24,6 +24,7 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV HOST=0.0.0.0
 ENV PORT=4000
 
 # Copy package manifests and install production dependencies only
@@ -35,6 +36,7 @@ RUN npx prisma generate
 # Copy compiled JavaScript from builder
 COPY --from=builder /app/dist ./dist
 
-EXPOSE 4000
+# Expose Render default port (10000) and local development port (4000)
+EXPOSE 10000 4000
 
 CMD ["sh", "-c", "npx prisma db push && node dist/index.js"]
