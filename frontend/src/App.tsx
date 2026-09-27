@@ -78,7 +78,7 @@ export const App: React.FC = () => {
         onNewRelease={() => setIsCreateModalOpen(true)}
         totalReleases={releases.length}
         theme={theme}
-        onSetTheme={setTheme}
+        onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
       />
 
       {/* Global Error Banner */}
