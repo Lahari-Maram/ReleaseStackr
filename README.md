@@ -243,21 +243,40 @@ $$\text{Status} = \begin{cases} \text{PLANNED} & \text{if } |\text{valid complet
 
 ---
 
-## 10. Performance Testing & Measured Results
+## 10. Performance Optimization & Breaking-Point Benchmarks
 
-Load tests were conducted using `load-tests/baseline-benchmark.js` against `http://localhost:4000/graphql` across 1,000 requests per tier:
+To evaluate server throughput and discover system breaking points under high concurrent traffic, load tests were executed against the representative GraphQL read workload (`releases` + `checklistSteps`, 1,000 requests per level) using our custom load test harnesses in `load-tests/`.
 
-| Concurrency | Baseline RPS | Optimized RPS | Throughput Improvement | Baseline p95 Latency | Optimized p95 Latency | p95 Latency Reduction | Success Rate |
-|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **10** | 708.86 req/s | **1,259.42 req/s** | **+77.7%** | 14.00 ms | **12.41 ms** | **-11.4%** | 100% (0 errors) |
-| **25** | 1,125.00 req/s | **1,575.19 req/s** | **+40.0%** | 30.82 ms | **21.05 ms** | **-31.7%** | 100% (0 errors) |
-| **50** | 1,306.66 req/s | **1,497.86 req/s** | **+14.6%** | 50.04 ms | **53.57 ms** | ~flat | 100% (0 errors) |
-| **100** | 1,330.63 req/s | **1,221.31 req/s** | -8.2% | 120.04 ms | **145.41 ms** | - | 100% (0 errors) |
-| **200** | 1,266.57 req/s | **2,057.64 req/s** | **+62.5%** | 257.69 ms | **170.35 ms** | **-33.9%** | 100% (0 errors) |
+### 1. Baseline vs. Optimized Breaking-Point Analysis
 
-Artifacts preserved:
-* `performance/baseline-results.json` & `performance/baseline-report.md`
-* `performance/optimized-results.json` & `performance/optimization-report.md`
+| Metric | Baseline (Unoptimized) | Optimized (In-Memory Cache) | Verified Improvement |
+| :--- | :--- | :--- | :--- |
+| **Last Stable Concurrency** | `600` concurrent clients | **`750` concurrent clients** | **+150 clients (+25% headroom)** |
+| **First Failing Concurrency** | `750` concurrent clients | **`1000` concurrent clients** | **Breaking threshold extended to 1000** |
+| **State at Concurrency 750** | **FAILED (32 / 1000 dropped, 3.2% rate)** | **STABLE (0 / 1000 dropped, 100% OK)** | **100% reliability at previously failing load** |
+| **Failures at Breaking Point** | 32 dropped requests (3.20%) | 18 dropped requests (1.80%) | **43.8% fewer drops under extreme load** |
+
+### 2. High-Concurrency Progression (200 – 1000 Clients)
+
+| Concurrency | Baseline Avg Latency | Optimized Avg Latency | Baseline RPS | Optimized RPS | Improvement Highlights |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **200** | 198.78 ms | **172.19 ms** | 915.67 req/s | **1,051.85 req/s** | +14.9% RPS, 13.4% faster |
+| **300** | 222.14 ms | **189.27 ms** | 1,162.44 req/s | **1,347.01 req/s** | +15.9% RPS, 14.8% faster |
+| **400** | 213.25 ms | **213.37 ms** | 1,474.66 req/s | **1,521.44 req/s** | +3.2% RPS |
+| **500** | 232.57 ms | **229.42 ms** | 1,501.31 req/s | **1,592.23 req/s** | +6.1% RPS (Peak Throughput) |
+| **600** | 337.63 ms | **261.17 ms** | 1,290.73 req/s | **1,560.99 req/s** | **+20.9% RPS, 22.6% faster** |
+| **750** | **FAILED (32 drops)** | **100% OK (0 drops)** | 1,466.47 req/s | **1,522.51 req/s** | **Eliminated failure point (100% success)** |
+| **1000** | *Untested (failed at 750)* | **98.20% OK (18 drops)** | N/A | **1,377.85 req/s** | **New extreme breaking limit** |
+
+### 3. Optimization Architecture: In-Memory TTL Cache
+* **Strategy:** Write-through in-memory caching with explicit TTL expiration for repeated read queries.
+* **Strict Cache Invalidation:** All write mutations (`createRelease`, `toggleReleaseStep`, `updateReleaseAdditionalInfo`, `deleteRelease`) immediately evict list and item caches to guarantee zero stale data reads.
+
+### 4. Preserved Performance Artifacts
+* Baseline Benchmark: `performance/baseline-results.json` & `performance/baseline-report.md`
+* Baseline Breaking-Point: `performance/baseline-breaking-point-results.json` & `performance/baseline-breaking-point-report.md`
+* Optimized Benchmark: `performance/optimized-results.json` & `performance/optimization-report.md`
+* Optimized Breaking-Point: `performance/optimized-breaking-point-results.json` & `performance/optimized-breaking-point-report.md`
 
 ---
 
@@ -307,15 +326,16 @@ During development, AI pair-programming was utilized for:
 1. **Schema & API Design:** Formulating the GraphQL schema, type definitions, and mapping relational JSON columns for step tracking.
 2. **Deterministic Lifecycle Rules:** Centralizing status transitions (`computeReleaseStatus`) to eliminate duplicate business logic between frontend and backend.
 3. **Performance Diagnostics:** Diagnosing Prisma connection pool contention at &ge; 100 concurrency and designing a write-through in-memory cache with immediate mutation invalidation.
-4. **UI Styling & Theming:** Structuring CSS tokens for the pure black (`#000000`) theme and responsive layout.
+4. **UI Styling & Theming:** Structuring CSS tokens for the Dark Mode (`#000000`) and Light Mode design system, theme persistence, and responsive UI components.
 
 ---
 
-## 14. Production Deployment
+## 14. Live Production Deployment
 
-* **Target Cloud Platforms:** Render / Fly.io / AWS ECS / Railway.
-* **Backend Image:** Multi-stage `backend/Dockerfile` ready for container deployment.
-* **Frontend SPA:** Static bundle (`npm --workspace=frontend run build`) ready for deployment to Cloudflare Pages, Vercel, or Netlify.
-* **Database:** Managed PostgreSQL (e.g., Supabase, Neon, AWS RDS).
+The ReleaseStackr application is deployed and live in production:
 
-*(Deployment configuration placeholders ready for production release).*
+* **Frontend Application (Render Static Site):** [https://releasestackr.onrender.com](https://releasestackr.onrender.com)
+* **Backend API (Render Web Service):** [https://releasestackr-api.onrender.com](https://releasestackr-api.onrender.com)
+* **GraphQL Endpoint:** [https://releasestackr-api.onrender.com/graphql](https://releasestackr-api.onrender.com/graphql)
+* **Health Check Endpoint:** [https://releasestackr-api.onrender.com/health](https://releasestackr-api.onrender.com/health)
+* **Database Cluster:** Neon Serverless PostgreSQL (ap-southeast-1, Connection Pooling enabled)
