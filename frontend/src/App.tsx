@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation } from '@apollo/client';
 import { GET_RELEASES, GET_CHECKLIST_STEPS } from './graphql/queries';
 import { DELETE_RELEASE } from './graphql/mutations';
@@ -13,6 +13,17 @@ export const App: React.FC = () => {
   const [selectedReleaseId, setSelectedReleaseId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [releaseToDelete, setReleaseToDelete] = useState<Release | null>(null);
+
+  // Dark / Light Theme state with localStorage persistence (Default: 'dark')
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('release_checklist_theme');
+    return saved === 'light' ? 'light' : 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('release_checklist_theme', theme);
+  }, [theme]);
 
   const {
     data: releasesData,
@@ -66,6 +77,8 @@ export const App: React.FC = () => {
       <Navbar
         onNewRelease={() => setIsCreateModalOpen(true)}
         totalReleases={releases.length}
+        theme={theme}
+        onSetTheme={setTheme}
       />
 
       {/* Global Error Banner */}
@@ -89,7 +102,7 @@ export const App: React.FC = () => {
       {isLoading && (
         <div className="loading-skeleton">
           <div className="spinner" />
-          <p style={{ marginTop: 12 }}>Loading software releases from GraphQL API...</p>
+          <p style={{ marginTop: 14, fontSize: 14 }}>Loading software releases from GraphQL API...</p>
         </div>
       )}
 
@@ -125,6 +138,12 @@ export const App: React.FC = () => {
         onCancel={() => setReleaseToDelete(null)}
         isDeleting={isDeleting}
       />
+      {/* Subtle Creator Credit Footer */}
+      <footer className="app-footer">
+        <p className="app-footer-text">
+          Designed &amp; built by <span className="app-footer-author">Lahari Maram</span>
+        </p>
+      </footer>
     </div>
   );
 };

@@ -2,6 +2,7 @@ import { GraphQLError } from 'graphql';
 import { prisma } from '../db/prisma';
 import { FIXED_CHECKLIST_STEPS, FIXED_STEP_IDS } from '../constants/steps';
 import { computeReleaseStatus } from '../utils/status';
+import { releaseCache } from '../utils/cache';
 
 interface CreateReleaseInput {
   name: string;
@@ -12,10 +13,14 @@ interface CreateReleaseInput {
 export const resolvers = {
   Query: {
     releases: async () => {
+      const cached = releaseCache.getList();
+      if (cached) {
+        return cached;
+      }
       const records = await prisma.release.findMany({
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
       });
-      return records.map((r) => ({
+      const mapped = records.map((r) => ({
         ...r,
         date: r.date.toISOString(),
         createdAt: r.createdAt.toISOString(),
@@ -25,16 +30,22 @@ export const resolvers = {
           : [],
         status: computeReleaseStatus(r.completedSteps),
       }));
+      releaseCache.setList(mapped);
+      return mapped;
     },
 
     release: async (_: unknown, { id }: { id: string }) => {
+      const cached = releaseCache.getItem(id);
+      if (cached) {
+        return cached;
+      }
       const record = await prisma.release.findUnique({
         where: { id },
       });
       if (!record) {
         return null;
       }
-      return {
+      const mapped = {
         ...record,
         date: record.date.toISOString(),
         createdAt: record.createdAt.toISOString(),
@@ -44,6 +55,8 @@ export const resolvers = {
           : [],
         status: computeReleaseStatus(record.completedSteps),
       };
+      releaseCache.setItem(mapped);
+      return mapped;
     },
 
     checklistSteps: () => {
@@ -85,6 +98,8 @@ export const resolvers = {
         },
       });
 
+      releaseCache.invalidate();
+
       return {
         ...record,
         date: record.date.toISOString(),
@@ -117,6 +132,8 @@ export const resolvers = {
           additionalInfo: sanitizedInfo,
         },
       });
+
+      releaseCache.invalidate(id);
 
       return {
         ...record,
@@ -172,6 +189,8 @@ export const resolvers = {
         },
       });
 
+      releaseCache.invalidate(id);
+
       return {
         ...record,
         date: record.date.toISOString(),
@@ -191,6 +210,7 @@ export const resolvers = {
       }
 
       await prisma.release.delete({ where: { id } });
+      releaseCache.invalidate(id);
       return true;
     },
   },

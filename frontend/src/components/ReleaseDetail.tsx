@@ -4,6 +4,7 @@ import { Release, ChecklistStep } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { TOGGLE_RELEASE_STEP, UPDATE_ADDITIONAL_INFO } from '../graphql/mutations';
 import { GET_RELEASES, GET_RELEASE } from '../graphql/queries';
+import { formatFullDateTime, isOverdue } from '../utils/date';
 
 interface ReleaseDetailProps {
   release: Release;
@@ -46,22 +47,7 @@ export const ReleaseDetail: React.FC<ReleaseDetailProps> = ({
   const completedCount = completedSet.size;
   const totalCount = allSteps.length;
   const percent = Math.round((completedCount / (totalCount || 1)) * 100);
-
-  const formatDate = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString(undefined, {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+  const overdue = isOverdue(release.date, release.status);
 
   const handleToggleStep = async (stepId: string) => {
     const isCurrentlyCompleted = completedSet.has(stepId);
@@ -131,12 +117,17 @@ export const ReleaseDetail: React.FC<ReleaseDetailProps> = ({
         <div className="detail-meta">
           <div className="meta-item">
             <span>📅</span>
-            <span>Target Date: {formatDate(release.date)}</span>
+            <span>Target Date: {formatFullDateTime(release.date)}</span>
+            {overdue && (
+              <span className="overdue-badge">
+                ⚠️ Overdue
+              </span>
+            )}
           </div>
           <div className="meta-item">
             <span>📊</span>
             <span>
-              Progress: {completedCount} of {totalCount} steps completed ({percent}%)
+              Progress: {completedCount}/{totalCount} steps completed ({percent}%)
             </span>
           </div>
         </div>
@@ -238,7 +229,16 @@ export const ReleaseDetail: React.FC<ReleaseDetailProps> = ({
                 key={step.id}
                 id={`step-${step.id}`}
                 className={`checklist-item ${isChecked ? 'checked' : ''}`}
+                role="checkbox"
+                aria-checked={isChecked}
+                tabIndex={0}
                 onClick={() => !isStepToggling && handleToggleStep(step.id)}
+                onKeyDown={(e) => {
+                  if ((e.key === ' ' || e.key === 'Enter') && !isStepToggling) {
+                    e.preventDefault();
+                    handleToggleStep(step.id);
+                  }
+                }}
               >
                 <div className="custom-checkbox">
                   {isStepToggling ? (
